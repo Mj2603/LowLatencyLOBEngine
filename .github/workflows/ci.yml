@@ -1,0 +1,29 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure CMake
+        run: |
+          mkdir build
+          cd build
+          cmake ..
+      - name: Build
+        run: |
+          cd build
+          cmake --build . --parallel
+      - name: Run tests
+        run: |
+          cd build
+          ctest --output-on-failure
