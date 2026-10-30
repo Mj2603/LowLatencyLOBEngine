@@ -1,6 +1,7 @@
 #include "engine.hpp"
 
 #include <algorithm>
+#include <iterator>
 #include <limits>
 #include <stdexcept>
 
@@ -78,7 +79,7 @@ bool OrderBook::valid_price(uint32_t price) const noexcept {
 }
 
 bool OrderBook::rest_order(const Order &order) {
-    if (!valid_price(order.price) || order.quantity == 0 ||
+    if (order.id == 0 || !valid_price(order.price) || order.quantity == 0 ||
         (order.side != Side::Buy && order.side != Side::Sell) ||
         orders_.find(order.id) != orders_.end()) {
         return false;
@@ -99,12 +100,29 @@ bool OrderBook::rest_order(const Order &order) {
 }
 
 bool OrderBook::add_order(const Order &order) {
+    if (!valid_price(order.price) ||
+        (order.side != Side::Buy && order.side != Side::Sell)) {
+        return false;
+    }
+    if (order.side == Side::Buy) {
+        for (uint64_t price = min_price_; price <= order.price; ++price) {
+            if (asks_[index(static_cast<uint32_t>(price))].volume != 0) {
+                return false;
+            }
+        }
+    } else {
+        for (uint64_t price = order.price; price <= max_price_; ++price) {
+            if (bids_[index(static_cast<uint32_t>(price))].volume != 0) {
+                return false;
+            }
+        }
+    }
     return rest_order(order);
 }
 
 std::vector<Fill> OrderBook::match_order(const Order &incoming) {
     std::vector<Fill> fills;
-    if (!valid_price(incoming.price) || incoming.quantity == 0 ||
+    if (incoming.id == 0 || !valid_price(incoming.price) || incoming.quantity == 0 ||
         (incoming.side != Side::Buy && incoming.side != Side::Sell) ||
         orders_.find(incoming.id) != orders_.end()) {
         return fills;
