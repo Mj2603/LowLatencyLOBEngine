@@ -1,56 +1,47 @@
 # Low-Latency Limit Order Book Engine
 
-A compact C++ prototype for low-latency order matching and limit order book management.
+A compact C++17 prototype for bounded event ingestion and aggregate price-level matching experiments.
 
-This repository is designed to showcase system-level performance engineering, deterministic matching, and a clean quantitative codebase.
+## Current scope
 
-## Highlights
+- A bounded single-producer/single-consumer ring buffer with preallocated storage.
+- A fixed-size array of aggregate price levels.
+- Basic order submission, quantity aggregation, and a synthetic benchmark executable.
+- CMake build, regression tests, and GitHub Actions CI.
 
-- Cache-aware fixed-price-level book representation.
-- Single-producer single-consumer ring buffer for event ingress.
-- Atomic price-level quantity updates for low-latency matching.
-- Benchmark harness for event throughput and baseline latency measurement.
-
-## Repository layout
-
-- `src/` — engine implementation and sample runner.
-- `benchmarks/` — throughput harness for synthetic order flow.
-- `tests/` — lightweight regression tests.
-- `docs/` — architecture and benchmark summary.
-- `CMakeLists.txt` — build definition.
+This is a systems-learning and research prototype. It is **not** a production matching engine or an exchange-grade limit order book. It does not currently implement order-level FIFO priority, cancellation and replace semantics, exact tick-by-tick price levels, market-by-order depth, a production feed handler, or a validated multi-core execution pipeline. The order-book model aggregates quantities into price buckets, so it must not be used to infer realistic fills or market impact.
 
 ## Build
 
+Requires CMake 3.16+ and a C++17 compiler.
+
 ```bash
-mkdir build
-cd build
-cmake ..
-cmake --build . --parallel
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build --parallel
 ```
 
 ## Run
 
 ```bash
-./lob_engine
-./benchmark_lob
+./build/lob_engine
+./build/benchmark_lob
 ```
 
-The sample engine runner demonstrates basic order submission and book state reporting.
+The benchmark is a synthetic smoke workload. Results depend on compiler, hardware, build flags, and system load; the repository does not claim a portable throughput or tail-latency figure.
 
-## Test
+## Tests
 
 ```bash
-ctest --output-on-failure
+ctest --test-dir build --output-on-failure
 ```
 
-## Continuous integration
+## Repository layout
 
-A GitHub Actions workflow is included in `.github/workflows/ci.yml` to build the project and execute tests on every push and pull request to `main`.
-
-## Design notes
-
-The prototype separates event ingestion from order book state, with the goal of minimizing hot-path contention and heap allocations. The implementation is intentionally small, deterministic, and suitable for a quantitative research portfolio.
+- `src/` — ring buffer, aggregate book model, and sample runner
+- `benchmarks/` — synthetic workload driver
+- `tests/` — regression tests
+- `docs/` — design and model limitations
 
 ## License
 
-This project is released under the MIT License. See `LICENSE` for details.
+MIT. See [LICENSE](LICENSE).
