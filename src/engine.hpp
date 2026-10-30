@@ -1,7 +1,8 @@
 #pragma once
 
-#include <atomic>
 #include <array>
+#include <atomic>
+#include <cstddef>
 #include <cstdint>
 #include <optional>
 #include <vector>
@@ -28,6 +29,7 @@ struct OrderEvent {
     Order order;
 };
 
+// Bounded single-producer/single-consumer event queue.
 class EventRing {
 public:
     explicit EventRing(size_t capacity = 1 << 20);
@@ -43,6 +45,7 @@ private:
     std::atomic<size_t> tail_;
 };
 
+// Aggregate price-level prototype. This is not an order-level FIFO book.
 class OrderBook {
 public:
     OrderBook(uint32_t min_price = 1, uint32_t max_price = 10000);
@@ -58,7 +61,7 @@ private:
         std::atomic<uint64_t> sequence{0};
     };
 
-    uint32_t index(uint32_t price) const noexcept;
+    size_t index(uint32_t price) const noexcept;
     bool valid_price(uint32_t price) const noexcept;
 
     std::array<PriceLevel, kPriceLevels> bids_;
