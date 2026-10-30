@@ -1,15 +1,15 @@
 # Low-Latency Limit Order Book Engine
 
-A compact C++17 prototype for bounded event ingestion and aggregate price-level matching experiments.
+A C++17 prototype for exact-tick price-time matching, bounded event ingestion, and repeatable synthetic benchmarks.
 
-## Current scope
+## Implemented
 
-- A bounded single-producer/single-consumer ring buffer with preallocated storage.
-- A fixed-size array of aggregate price levels.
-- Basic order submission, quantity aggregation, and a synthetic benchmark executable.
-- CMake build, regression tests, and GitHub Actions CI.
-
-This is a systems-learning and research prototype. It is **not** a production matching engine or an exchange-grade limit order book. It does not currently implement order-level FIFO priority, cancellation and replace semantics, exact tick-by-tick price levels, market-by-order depth, a production feed handler, or a validated multi-core execution pipeline. The order-book model aggregates quantities into price buckets, so it must not be used to infer realistic fills or market impact.
+- Exact integer-tick levels over a configured bounded price range.
+- Price-time FIFO matching with partial fills and maker/taker execution reports.
+- Partial and full cancellation by order ID.
+- A bounded single-producer/single-consumer ingress ring with preallocated storage.
+- Regression coverage for matching priority, partial fills, cancellation, invalid input, and queue bounds.
+- A repeated synthetic benchmark with correctness checks and batch-latency percentiles.
 
 ## Build
 
@@ -18,6 +18,7 @@ Requires CMake 3.16+ and a C++17 compiler.
 ```bash
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build --parallel
+ctest --test-dir build --output-on-failure
 ```
 
 ## Run
@@ -25,22 +26,25 @@ cmake --build build --parallel
 ```bash
 ./build/lob_engine
 ./build/benchmark_lob
+./build/benchmark_lob 200000
 ```
 
-The benchmark is a synthetic smoke workload. Results depend on compiler, hardware, build flags, and system load; the repository does not claim a portable throughput or tail-latency figure.
+The benchmark includes queue submission, matching, and fill-report allocation. It is an in-process synthetic workload, not an exchange-grade latency result. Record the machine, compiler, build flags, kernel, and load before comparing results. Batch percentiles are not per-order tail latency.
 
-## Tests
+## Concurrency contract
 
-```bash
-ctest --test-dir build --output-on-failure
-```
+The ring is single-producer/single-consumer. The consumer owns all book mutations. The book itself is not thread-safe, and cancellation must run on the same consumer/owner thread. Atomic queue indices do not make the order book concurrently mutable.
+
+## Limitations before production use
+
+This repository remains a research prototype. It does not include a market-data feed handler, protocol/session recovery, sequencing and replay, exchange-specific order semantics, self-trade prevention, risk controls, persistence, or a multi-core matching architecture. It has not been independently performance-audited or validated against exchange conformance cases.
 
 ## Repository layout
 
-- `src/` — ring buffer, aggregate book model, and sample runner
-- `benchmarks/` — synthetic workload driver
-- `tests/` — regression tests
-- `docs/` — design and model limitations
+- `src/` — queue, matching engine, and sample runner
+- `benchmarks/` — repeatable synthetic workload driver
+- `tests/` — deterministic regression checks
+- `docs/` — architecture and benchmark methodology
 
 ## License
 

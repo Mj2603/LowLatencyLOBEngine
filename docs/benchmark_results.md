@@ -1,17 +1,7 @@
-# Benchmark Status
+# Benchmark Method
 
-`benchmarks/benchmark_main.cpp` is a synthetic smoke workload that submits one million events and drains the event queue. It is not a calibrated performance benchmark for a realistic limit order book: the model uses aggregate price buckets and does not measure feed decoding, order-level matching, cancellation, queue position, or end-to-end latency.
+The benchmark runs a deterministic sequence of crossing one-lot orders through the in-process queue and matching engine. It performs a warm-up, then seven measured repetitions. Each run verifies its fill count and requires the book to end flat. It reports median run throughput and p50/p95/p99 latency for batches of 256 submitted events.
 
-The previously recorded throughput number has been removed because the repository did not preserve the machine, compiler, build flags, repetitions, warm-up, or measurement method needed to reproduce it.
+The batch latency includes queue submission, matching, and execution-report allocation. It is not an individual order's latency and should not be compared with exchange or HFT system tail latency.
 
-## To publish performance results
-
-A credible benchmark should record:
-
-- CPU model, core pinning, operating system, compiler version, and complete build flags
-- warm-up and repeated runs, with median and tail percentiles
-- events actually matched and book state checksums
-- separate queue, matching, and end-to-end timings
-- a realistic workload with inserts, cancels, replacements, and trades
-
-Until that harness exists, treat the executable as a smoke workload only.
+No performance result is checked in yet. To create a useful report, record the CPU, operating system/kernel, compiler version, full build flags, power/performance settings, and system load. Pin the process to a core, repeat on an otherwise idle machine, and compare runs on the same environment. The benchmark is a synthetic microbenchmark and does not model feed handling, cancels, realistic order-flow distributions, or end-to-end network latency.

@@ -4,7 +4,9 @@
 #include <atomic>
 #include <cstddef>
 #include <cstdint>
+#include <list>
 #include <optional>
+#include <unordered_map>
 #include <vector>
 
 namespace lob {
@@ -29,7 +31,8 @@ struct OrderEvent {
     Order order;
 };
 
-// Bounded single-producer/single-consumer event queue.
+// Bounded single-producer/single-consumer queue. The consumer must be the
+// sole owner of OrderBook mutations.
 class EventRing {
 public:
     explicit EventRing(size_t capacity = 1 << 20);
@@ -41,42 +44,55 @@ private:
     const size_t capacity_;
     const size_t mask_;
     std::vector<OrderEvent> buffer_;
-    std::atomic<size_t> head_;
-    std::atomic<size_t> tail_;
+    alignas(64) std::atomic<size_t> head_;
+    alignas(64) std::atomic<size_t> tail_;
 };
 
-// Aggregate price-level prototype. This is not an order-level FIFO book.
+// Single-threaded exact-tick price-time FIFO book. Prices are integer ticks in
+// the inclusive configured range. The book itself is not thread-safe.
 class OrderBook {
 public:
     OrderBook(uint32_t min_price = 1, uint32_t max_price = 10000);
     bool add_order(const Order &order);
-    std::optional<Fill> match_order(const Order &incoming);
-    uint64_t bid_volume() const;
-    uint64_t ask_volume() const;
+    std::vector<Fill> match_order(const Order &incoming);
+    bool cancel_order(uint64_t order_id, uint32_t quantity = 0);
+    uint64_t bid_volume() const noexcept;
+    uint64_t ask_volume() const noexcept;
+    size_t live_order_count() const noexcept;
 
 private:
-    static constexpr size_t kPriceLevels = 1024;
     struct PriceLevel {
-        std::atomic<uint32_t> quantity{0};
-        std::atomic<uint64_t> sequence{0};
+        std::list<Order> fifo;
+        uint64_t volume{0};
+    };
+    struct OrderLocation {
+        Side side;
+        uint32_t price;
+        std::list<Order>::iterator iterator;
     };
 
     size_t index(uint32_t price) const noexcept;
     bool valid_price(uint32_t price) const noexcept;
+    bool rest_order(const Order &order);
 
-    std::array<PriceLevel, kPriceLevels> bids_;
-    std::array<PriceLevel, kPriceLevels> asks_;
+    std::vector<PriceLevel> bids_;
+    std::vector<PriceLevel> asks_;
+    std::unordered_map<uint64_t, OrderLocation> orders_;
     const uint32_t min_price_;
     const uint32_t max_price_;
+    uint64_t bid_volume_{0};
+    uint64_t ask_volume_{0};
 };
 
 class MatchingEngine {
 public:
     explicit MatchingEngine(uint32_t min_price = 1, uint32_t max_price = 10000);
     bool submit(const Order &order);
-    void process_events();
-    uint64_t total_bid_volume() const;
-    uint64_t total_ask_volume() const;
+    std::vector<Fill> process_events();
+    uint64_t total_bid_volume() const noexcept;
+    uint64_t total_ask_volume() const noexcept;
+    size_t live_order_count() const noexcept;
+    bool cancel_order(uint64_t order_id, uint32_t quantity = 0);
 
 private:
     OrderBook book_;
