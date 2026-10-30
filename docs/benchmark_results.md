@@ -1,25 +1,17 @@
-# Benchmark Results
+# Benchmark Status
 
-The benchmark harness evaluates order ingestion and processing throughput for a synthetic event stream.
+`benchmarks/benchmark_main.cpp` is a synthetic smoke workload that submits one million events and drains the event queue. It is not a calibrated performance benchmark for a realistic limit order book: the model uses aggregate price buckets and does not measure feed decoding, order-level matching, cancellation, queue position, or end-to-end latency.
 
-## Benchmark configuration
+The previously recorded throughput number has been removed because the repository did not preserve the machine, compiler, build flags, repetitions, warm-up, or measurement method needed to reproduce it.
 
-- Event count: 1,000,000
-- Price range: 100–109
-- Quantity per order: 1
-- Single-threaded processing path
+## To publish performance results
 
-## Measured throughput
+A credible benchmark should record:
 
-- Total event processing time: `0.0168` seconds
-- Effective throughput: `59.5M events/sec`
+- CPU model, core pinning, operating system, compiler version, and complete build flags
+- warm-up and repeated runs, with median and tail percentiles
+- events actually matched and book state checksums
+- separate queue, matching, and end-to-end timings
+- a realistic workload with inserts, cancels, replacements, and trades
 
-## Interpretation
-
-The benchmark shows the prototype can sustain tens of millions of synthetic order events per second on a single core. It validates the value of a compact engine design with preallocated event storage and atomic price-level updates.
-
-## Future improvements
-
-- expand book depth and price-level resolution
-- add multi-threaded matching and execution pipelines
-- support full order-level FIFO matching semantics
+Until that harness exists, treat the executable as a smoke workload only.
