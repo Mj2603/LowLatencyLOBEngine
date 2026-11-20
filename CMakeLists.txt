@@ -37,6 +37,12 @@ target_compile_options(benchmark_lob PRIVATE
     $<$<CXX_COMPILER_ID:Clang>:-Wall;-Wextra;-Wpedantic>
     $<$<CXX_COMPILER_ID:MSVC>:/W4>
 )
+# Record the build configuration so benchmark output is self-describing.
+string(TOUPPER "${CMAKE_BUILD_TYPE}" LOB_BUILD_TYPE_UPPER)
+target_compile_definitions(benchmark_lob PRIVATE
+    LOB_BENCH_BUILD_TYPE="${CMAKE_BUILD_TYPE}"
+    LOB_BENCH_CXX_FLAGS="${CMAKE_CXX_FLAGS} ${CMAKE_CXX_FLAGS_${LOB_BUILD_TYPE_UPPER}}"
+)
 
 enable_testing()
 add_subdirectory(tests)
