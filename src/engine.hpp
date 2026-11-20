@@ -48,6 +48,29 @@ private:
     alignas(64) std::atomic<size_t> tail_;
 };
 
+// Two-level occupancy bitmap over price-level indices. Finding the next or
+// previous non-empty level costs at most a scan of one 64-bit word plus a scan
+// of the summary words (one summary bit per 64 levels), using count-zero
+// intrinsics, instead of touching every empty level.
+class LevelBitmap {
+public:
+    static constexpr size_t npos = static_cast<size_t>(-1);
+
+    explicit LevelBitmap(size_t size = 0);
+    void set(size_t index) noexcept;
+    void clear(size_t index) noexcept;
+    bool test(size_t index) const noexcept;
+    // Lowest set index >= from, or npos.
+    size_t find_next(size_t from) const noexcept;
+    // Highest set index <= from, or npos.
+    size_t find_prev(size_t from) const noexcept;
+
+private:
+    size_t size_;
+    std::vector<uint64_t> words_;
+    std::vector<uint64_t> summary_;
+};
+
 // Single-threaded exact-tick price-time FIFO book. Prices are integer ticks in
 // the inclusive configured range. The book itself is not thread-safe.
 class OrderBook {
@@ -59,6 +82,11 @@ public:
     uint64_t bid_volume() const noexcept;
     uint64_t ask_volume() const noexcept;
     size_t live_order_count() const noexcept;
+    // Best (highest) resting bid / best (lowest) resting ask, if any.
+    std::optional<uint32_t> best_bid() const noexcept;
+    std::optional<uint32_t> best_ask() const noexcept;
+    // Total resting quantity at an exact price on one side (0 if out of range).
+    uint64_t volume_at(Side side, uint32_t price) const noexcept;
 
 private:
     struct PriceLevel {
@@ -74,9 +102,15 @@ private:
     size_t index(uint32_t price) const noexcept;
     bool valid_price(uint32_t price) const noexcept;
     bool rest_order(const Order &order);
+    void level_emptied(Side side, size_t level_index) noexcept;
 
     std::vector<PriceLevel> bids_;
     std::vector<PriceLevel> asks_;
+    LevelBitmap bid_occupancy_;
+    LevelBitmap ask_occupancy_;
+    // Level indices of the current best bid/ask; LevelBitmap::npos when empty.
+    size_t best_bid_index_{LevelBitmap::npos};
+    size_t best_ask_index_{LevelBitmap::npos};
     std::unordered_map<uint64_t, OrderLocation> orders_;
     const uint32_t min_price_;
     const uint32_t max_price_;
@@ -93,6 +127,8 @@ public:
     uint64_t total_ask_volume() const noexcept;
     size_t live_order_count() const noexcept;
     bool cancel_order(uint64_t order_id, uint32_t quantity = 0);
+    std::optional<uint32_t> best_bid() const noexcept;
+    std::optional<uint32_t> best_ask() const noexcept;
 
 private:
     OrderBook book_;
