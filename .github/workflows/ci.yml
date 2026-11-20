@@ -27,3 +27,5 @@ jobs:
         run: |
           cd build
           ctest --output-on-failure
+      - name: Benchmark smoke run
+        run: ./build/benchmark_lob --events 20000 --runs 1
